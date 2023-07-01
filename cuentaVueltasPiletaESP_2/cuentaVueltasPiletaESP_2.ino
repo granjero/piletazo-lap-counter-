@@ -1,48 +1,38 @@
 #include <Button.h>
-
 #include <ESP8266WiFi.h>  // https://github.com/esp8266/Arduino
 #include <WiFiClient.h>
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
+// define los pines de los segmentos del display
+#define segA 16                     // D0 
+#define segB 5                      // D1
+#define segC 4                      // D2
+#define segD 0                      // D3
+#define segE 2                      // D4
+#define segF 14                     // D5
+#define segG 12                     // D6
+#define dispDecenas 13              // D7
+#define dispUnidades 15             // D8
+#define dispSeries 10               // SD3
+#define sensorMgn 9                 // SD2
 
-DNSServer dnsServer;          // Inicia Servidor DNS (no?)
-ESP8266WebServer server(80);  // Inicia Servidor web en el puerto 80
-
-
-// define los pines de los segmentos
-#define segA 16         // D0
-#define segB 5          // D1
-#define segC 4          // D2
-#define segD 0          // D3
-#define segE 2          // D4
-#define segF 14         // D5
-#define segG 12         // D6
-// define los pins de los displays
-#define dispDecenas 13  // D7
-#define dispUnidades 15 // D8
-#define dispSeries 10   // SD3
-// define el pin del boton
-#define boton 9 // boton
-Button botonIncremento(boton); 
+Button sensor(sensorMgn);
+DNSServer dnsServer;
+ESP8266WebServer server(80);
 
 // Define the digit patterns for numbers 0 to 9 a to f
-byte digitos[16][8] = {
-  {0, 0, 0, 0, 0, 0, 1, 1},  // Digit 0
-  {1, 0, 0, 1, 1, 1, 1, 1},  // Digit 1
-  {0, 0, 1, 0, 0, 1, 0, 1},  // Digit 2
-  {0, 0, 0, 0, 1, 1, 0, 1},  // Digit 3
-  {1, 0, 0, 1, 1, 0, 0, 1},  // Digit 4
-  {0, 1, 0, 0, 1, 0, 0, 1},  // Digit 5
-  {0, 1, 0, 0, 0, 0, 0, 1},  // Digit 6
-  {0, 0, 0, 1, 1, 1, 1, 1},  // Digit 7
-  {0, 0, 0, 0, 0, 0, 0, 1},  // Digit 8
-  {0, 0, 0, 0, 1, 0, 0, 1},   // Digit 9
-  {0, 1, 1, 1, 1, 1, 1, 1},  // Letter A
-  {1, 1, 1, 0, 0, 0, 0, 1},  // Letter B
-  {0, 1, 1, 0, 0, 1, 1, 1},  // Letter C
-  {1, 1, 0, 0, 0, 1, 1, 1},  // Letter D
-  {0, 1, 1, 0, 0, 0, 1, 1},  // Letter E
-  {0, 1, 1, 1, 0, 0, 1, 1}   // Letter F
+byte digitos[10][7] = {
+  {0, 0, 0, 0, 0, 0, 1},  // Digit 0
+  {1, 0, 0, 1, 1, 1, 1},  // Digit 1
+  {0, 0, 1, 0, 0, 1, 0},  // Digit 2
+  {0, 0, 0, 0, 1, 1, 0},  // Digit 3
+  {1, 0, 0, 1, 1, 0, 0},  // Digit 4
+  {0, 1, 0, 0, 1, 0, 0},  // Digit 5
+  {0, 1, 0, 0, 0, 0, 0},  // Digit 6
+  {0, 0, 0, 1, 1, 1, 1},  // Digit 7
+  {0, 0, 0, 0, 0, 0, 0},  // Digit 8
+  {0, 0, 0, 0, 1, 0, 0},  // Digit 9
+
 };
 
 byte pattern[8]; // patron para dibujar en el display
@@ -51,7 +41,6 @@ unsigned long millisPulsacion = 0;       // Variable timestamp
 unsigned long intervaloReset = 3500;     // 3.5 segundos
 unsigned long intervaloSeries = 1500;    // 1.5 segundos
 
-int piletas_series[2] = {0, 0};     // {piletas, series}
 int piletas = 0;                    // Variable to increment
 int series = 0;                     // Variable to increment
 int displayLED = 0;                 // displays | 0 = unidades | 1 = decenas | 2 = series |
@@ -66,12 +55,9 @@ void setup() {
   WiFi.disconnect();
   WiFi.softAPConfig(IP, gateway, subnet);
   WiFi.softAP("Piletazo");
-  //Serial.println(F("Wifi Iniciado."));
   dnsServer.start(53, "*", IP);
   server.begin();  // Inicia el Servidor
 
-  // inicializa boton
-  botonIncremento.begin();
   // Set segment and digit pins as outputs
   pinMode(segA, OUTPUT);
   pinMode(segB, OUTPUT);
@@ -83,8 +69,10 @@ void setup() {
   pinMode(dispDecenas, OUTPUT);
   pinMode(dispUnidades, OUTPUT);
   pinMode(dispSeries, OUTPUT);
-  // apaga los leds
-  digitalWrite(dispDecenas, LOW);
+
+  sensor.begin(); // inicializa boton
+
+  digitalWrite(dispDecenas, LOW);   // apaga los displays
   digitalWrite(dispUnidades, LOW);
   digitalWrite(dispSeries, LOW);
 }
@@ -92,39 +80,27 @@ void setup() {
 void loop() {
   unsigned long currentMillis = millis();
 
-  if(botonIncremento.pressed())
-  {
+  if(sensor.pressed()) {
     millisPulsacion = millis();
     piletas++;
-    piletas_series[0] = piletas;
   }
   
-  if(botonIncremento.released())
-  {
+  if(sensor.released()) {
     if (currentMillis - millisPulsacion >= intervaloReset) {
       piletas = 0;
       series = 0;
-      piletas_series[0] = piletas;
-      piletas_series[1] = series;      
-
-    }
-    else if (currentMillis - millisPulsacion >= intervaloSeries) {
+    } else if (currentMillis - millisPulsacion >= intervaloSeries) {
       series++;
       piletas = 0;
-      piletas_series[0] = piletas;
-      piletas_series[1] = series;      
-
     }
   }
-  imprimirEnPantalla(piletas_series, displayLED);   
 
+  imprimirEnPantalla(piletas, series, displayLED);   
   displayLED = (displayLED + 1) % 3;  // Increment dispLed and wrap around to 0 after reaching 2
-
   delay(5);
 }
 
-void imprimirEnPantalla(int datos[], int display)
-{
+void imprimirEnPantalla(int piletas, int series, int display) {
   // apaga los displays
   digitalWrite(dispDecenas, LOW);
   digitalWrite(dispUnidades, LOW);
@@ -134,23 +110,22 @@ void imprimirEnPantalla(int datos[], int display)
   switch (display) {
     case 0:
       digitalWrite(dispUnidades, HIGH);
-      valor = datos[0] % 10;
+      valor = piletas % 10; // valor de las unidades
       for (int i = 0; i < 8; i++) {
         pattern[i] = digitos[valor][i];
       }
       break;
     case 1:
       digitalWrite(dispDecenas, HIGH);  
-      valor = (datos[0] / 10) % 10;
+      valor = (piletas / 10) % 10; // valor de las decenas
       for (int i = 0; i < 8; i++) {
         pattern[i] = digitos[valor][i];
       }
       break;
     case 2:
       digitalWrite(dispSeries, HIGH);
-      valor = datos[1];
       for (int i = 0; i < 8; i++) {
-        pattern[i] = digitos[valor][i];
+        pattern[i] = digitos[series][i];
       }
       break;
   }
