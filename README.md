@@ -19,4 +19,5 @@ Para incrementar el contador de series se acerca el imán y se espera más de 1.
 Para volver a 0 ambos contadores se acerca el imán y se espera más de 3.5 segundos para alejarlo.
 
 
-
+![Foto del contador soldado](https://github.com/granjero/piletazo-lap-counter-/blob/main/piletazo.png)
+![Foto del contador dentro de la bolsa impermeable](https://github.com/granjero/piletazo-lap-counter-/blob/main/piletazo_impermeable.png)
