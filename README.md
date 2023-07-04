@@ -31,3 +31,10 @@ Para volver a 0 ambos contadores se acerca el imán y se espera más de 3.5 segu
 
 - Mandar a imprimir el pcb y soldar
 
+
+
+
+# TODO
+- que el server tenga una web app para ver desde el celu y hacer estadísticas.
+
+
